@@ -30,7 +30,10 @@ export default function OracleAIPage() {
 
       if (data.init_point === "FREE_ACCESS") {
         setMensagem("⚡ ACESSO BIOMÉTRICO VALIDADO. REDIRECIONANDO...");
-        setTimeout(() => { window.location.href = "/analise"; }, 1500);
+        // Simulação de redirecionamento para a página de análise
+        setTimeout(() => { 
+          alert("Acesso Liberado! Aqui o sistema abriria a análise institucional.");
+        }, 1500);
         return;
       }
 
@@ -49,9 +52,14 @@ export default function OracleAIPage() {
   return (
     <div className="relative min-h-screen bg-[#050505] text-white overflow-hidden font-sans selection:bg-[#4a0404]">
       
-      {/* BACKGROUND COM GRID E GRÁFICOS */}
-      <div className="absolute inset-0 z-0 opacity-20" 
-           style={{ backgroundImage: `linear-gradient(#111 1px, transparent 1px), linear-gradient(90deg, #111 1px, transparent 1px)`, size: '40px 40px' }} />
+      {/* BACKGROUND COM GRID E GRÁFICOS - CORRIGIDO PARA VERCEL */}
+      <div 
+        className="absolute inset-0 z-0 opacity-20" 
+        style={{ 
+          backgroundImage: `linear-gradient(#111 1px, transparent 1px), linear-gradient(90deg, #111 1px, transparent 1px)`, 
+          backgroundSize: '40px 40px' 
+        }} 
+      />
       
       {/* EFEITO DE LUZ RADIAL (SEGUE O MOUSE) */}
       <div className="pointer-events-none absolute inset-0 z-10 opacity-30 transition-opacity duration-300"
@@ -63,10 +71,9 @@ export default function OracleAIPage() {
           <div className="w-8 h-8 bg-[#4a0404] rounded-full animate-pulse shadow-[0_0_15px_#4a0404]" />
           <span className="font-bold text-xl tracking-tighter italic">ORACLE<span className="text-[#4a0404]">.AI</span></span>
         </div>
-        <div className="hidden md:flex gap-8 text-xs font-medium tracking-widest text-gray-500">
-          <span className="hover:text-white cursor-pointer transition-colors">INSTITUTIONAL ENGINE V2.0</span>
-          <span className="hover:text-white cursor-pointer transition-colors">ORDER FLOW</span>
-          <span className="text-[#4a0404] animate-pulse">● LIVE MARKET DATA</span>
+        <div className="hidden md:flex gap-8 text-[10px] font-bold tracking-[0.3em] text-gray-500 uppercase">
+          <span>Institutional Engine V2.0</span>
+          <span className="text-[#4a0404] animate-pulse">● Live Market Data</span>
         </div>
       </nav>
 
@@ -87,7 +94,7 @@ export default function OracleAIPage() {
         
         <p className="max-w-2xl text-center text-gray-400 text-lg mb-12 leading-relaxed">
           Nossa inteligência artificial mapeia zonas de liquidez e ordens ocultas em milissegundos. 
-          A mesma tecnologia dos grandes players, agora no seu gráfico.
+          A tecnologia dos grandes bancos, agora no seu gráfico.
         </p>
 
         {/* CARD DE ACESSO (GLASSMORPHISM) */}
@@ -95,21 +102,19 @@ export default function OracleAIPage() {
           <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#4a0404] to-transparent opacity-50" />
           
           <div className="relative z-10">
-            <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+            <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-gray-200">
               <span className="w-2 h-4 bg-[#4a0404] block" />
-              DESBLOQUEAR TERMINAL
+              TERMINAL DE ACESSO
             </h2>
 
             <div className="space-y-4">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="INSIRA SEU CUPOM"
-                  value={cupom}
-                  onChange={(e) => setCupom(e.target.value)}
-                  className="w-full bg-black/50 border border-white/10 p-4 rounded-xl text-white focus:border-[#4a0404] outline-none transition-all placeholder:text-gray-600 font-mono text-sm tracking-widest"
-                />
-              </div>
+              <input
+                type="text"
+                placeholder="INSIRA SEU CUPOM"
+                value={cupom}
+                onChange={(e) => setCupom(e.target.value)}
+                className="w-full bg-black/50 border border-white/10 p-4 rounded-xl text-white focus:border-[#4a0404] outline-none transition-all placeholder:text-gray-700 font-mono text-sm tracking-widest uppercase"
+              />
 
               <button
                 onClick={handlePagamento}
@@ -123,7 +128,7 @@ export default function OracleAIPage() {
                 {loading ? (
                   <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  cupom.toUpperCase() === "FREE1" ? "INICIAR SESSÃO GRATUITA" : "ADQUIRIR ACESSO FULL — R$ 19,90"
+                  cupom.toUpperCase() === "FREE1" ? "INICIAR SESSÃO GRATUITA" : "ADQUIRIR ACESSO — R$ 19,90"
                 )}
               </button>
             </div>
@@ -135,9 +140,9 @@ export default function OracleAIPage() {
             )}
 
             <div className="mt-8 flex justify-between items-center grayscale opacity-30 group-hover:opacity-100 transition-opacity">
-               <img src="https://logodownload.org/wp-content/uploads/2020/02/pix-bc-logo.png" className="h-4" alt="Pix" />
-               <div className="h-4 w-[1px] bg-white/20" />
-               <span className="text-[10px] font-bold tracking-widest">MASTER / VISA</span>
+               <span className="text-[10px] font-bold tracking-widest uppercase">Pix Active</span>
+               <div className="h-4 w-[1px] bg-white/10" />
+               <span className="text-[10px] font-bold tracking-widest uppercase">Secure SSL</span>
             </div>
           </div>
         </div>
@@ -159,9 +164,9 @@ export default function OracleAIPage() {
         </div>
       </main>
 
-      <footer className="relative z-20 py-10 text-center">
+      <footer className="relative z-20 py-20 text-center">
          <p className="text-[9px] text-gray-700 tracking-[0.5em] uppercase">
-           Oracle Senna Intelligence © 2026 • Institutional Trading Only
+           Oracle Senna Intelligence © 2026 • Institutional Trading Technology
          </p>
       </footer>
     </div>
