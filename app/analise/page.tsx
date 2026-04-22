@@ -104,5 +104,5 @@ export default function AnalisePage() {
         </div>
       </div>
     </div>
-  );
+ // Versão 2.0 );
 }
