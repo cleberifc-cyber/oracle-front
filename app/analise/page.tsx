@@ -37,9 +37,9 @@ export default function AnalisePage() {
         const validar = await fetch("https://oracle-analises.onrender.com/validar-cupom", {
           method: "POST",
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify({ cupom: textoCupom })
+          body: JSON.stringify({ cupom: textoCupom }),
         });
 
         const respostaCupom = await validar.json();
@@ -67,9 +67,9 @@ export default function AnalisePage() {
       const res = await fetch("https://oracle-analises.onrender.com/criar-pagamento", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -103,9 +103,9 @@ export default function AnalisePage() {
       const res = await fetch("https://oracle-analises.onrender.com/verificar-venda-por-email", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ email }),
       });
 
       const data = await res.json();
@@ -142,7 +142,7 @@ export default function AnalisePage() {
     try {
       const res = await fetch("https://oracle-analises.onrender.com/analisar-print-com-desenho", {
         method: "POST",
-        body: formData
+        body: formData,
       });
 
       const data = await res.json();
@@ -182,7 +182,6 @@ export default function AnalisePage() {
   return (
     <div className="min-h-screen bg-[#0d1117] text-[#e6edf3] font-sans p-6">
       <div className="max-w-6xl mx-auto space-y-10">
-
         <header className="bg-[#161b22] p-6 rounded-3xl border border-[#30363d] flex justify-between items-center shadow-xl">
           <h1 className="text-xl font-black italic text-white uppercase tracking-tighter">
             Oracle<span className="text-[#0070f3]">.AI</span> Terminal
@@ -244,13 +243,15 @@ export default function AnalisePage() {
 
             {(statusAcesso === "pendente" || statusAcesso === "erro" || statusAcesso === "verificando") && (
               <div className="max-w-xl mx-auto mt-6 bg-[#0b1220] border border-[#30363d] rounded-2xl p-4">
-                <p className={`text-sm font-bold ${
-                  statusAcesso === "erro"
-                    ? "text-[red]"
-                    : statusAcesso === "pendente"
-                    ? "text-[#f0b90b]"
-                    : "text-[#0070f3]"
-                }`}>
+                <p
+                  className={`text-sm font-bold ${
+                    statusAcesso === "erro"
+                      ? "text-[red]"
+                      : statusAcesso === "pendente"
+                      ? "text-[#f0b90b]"
+                      : "text-[#0070f3]"
+                  }`}
+                >
                   {mensagemStatus}
                 </p>
               </div>
@@ -264,9 +265,7 @@ export default function AnalisePage() {
             <div className="text-[#0070f3] font-black tracking-widest text-sm animate-pulse uppercase">
               PROCESSANDO...
             </div>
-            <p className="text-[#8b949e] text-sm text-center max-w-md">
-              {mensagemStatus}
-            </p>
+            <p className="text-[#8b949e] text-sm text-center max-w-md">{mensagemStatus}</p>
           </div>
         )}
 
@@ -366,7 +365,6 @@ export default function AnalisePage() {
             </div>
           </div>
         )}
-
       </div>
     </div>
   );
