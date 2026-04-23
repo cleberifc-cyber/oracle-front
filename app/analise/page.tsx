@@ -7,6 +7,7 @@ export default function AnalisePage() {
   const [loading, setLoading] = useState(false);
   const [cupom, setCupom] = useState("");
   const [acessoLiberado, setAcessoLiberado] = useState(false);
+  const [linkPagamento, setLinkPagamento] = useState<string | null>(null);
 
   const processarAcesso = async () => {
     if (cupom.toUpperCase() === "FREE1") {
@@ -15,27 +16,37 @@ export default function AnalisePage() {
     }
 
     setLoading(true);
+    setLinkPagamento(null);
+
     try {
-      // Blindagem extra no envio do payload para evitar qualquer Erro 422
+      // Formatação blindada do payload
       const payload = cupom.trim() !== "" ? { cupom: cupom.trim() } : {};
+      console.log("Iniciando transação com o motor Oracle...", payload);
 
       const res = await fetch("https://oracle-analises.onrender.com/criar-pagamento", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        mode: "cors", // Força a liberação de política de rede
         body: JSON.stringify(payload)
       });
       
       const data = await res.json();
+      console.log("Resposta do Motor:", data);
       
       if (res.ok && data.init_point) {
-        // Redirecionamento bem-sucedido para o checkout
-        window.location.href = data.init_point;
+        // Salva o link no estado para ativar a tela de Fallback
+        setLinkPagamento(data.init_point);
+        // Tenta o redirecionamento agressivo
+        window.location.assign(data.init_point);
       } else {
-        // Se der erro, avisa exatamente o que a InfinitePay reclamou
-        alert("FALHA NA INTEGRAÇÃO: " + (data.detail || "Verifique se a sua tag (handle) cadastrada no backend está exatamente igual ao app da InfinitePay."));
+        alert("FALHA NA INTEGRAÇÃO: " + (data.detail || "Erro de comunicação com a InfinitePay."));
       }
-    } catch (err) {
-      alert("Falha de rede com o terminal Oracle. Verifique sua conexão ou se o motor no Render está acordado.");
+    } catch (err: any) {
+      console.error("Erro Crítico:", err);
+      alert("O seu navegador bloqueou a requisição ou o servidor está dormindo. Verifique sua conexão.");
     } finally {
       setLoading(false);
     }
@@ -58,7 +69,6 @@ export default function AnalisePage() {
       const data = await res.json();
       
       if (data.status === "sucesso") {
-        // Recebendo os dados completos da Engine v9.4 Pro
         setAnalise(data.relatorio_completo);
         setImagemFinal(data.imagem_processada_oracle_sniper);
       } else {
@@ -84,11 +94,11 @@ export default function AnalisePage() {
         </header>
 
         {/* TELA DE LOGIN / PAGAMENTO */}
-        {!acessoLiberado && !imagemFinal && !loading && (
+        {!acessoLiberado && !imagemFinal && !loading && !linkPagamento && (
           <div className="bg-[#161b22] border border-[#30363d] rounded-[48px] p-20 text-center space-y-8 shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#0070f3] to-transparent"></div>
             <h2 className="text-4xl font-black text-white italic">DECIFRE O FLUXO INSTITUCIONAL</h2>
-            <p className="text-[#8b949e] max-w-lg mx-auto">Nossa inteligência artificial mapeia zonas de liquidez e ordens ocultas. A tecnologia dos grandes bancos, agora no seu gráfico.</p>
+            <p className="text-[#8b949e] max-w-lg mx-auto">Nossa inteligência artificial mapeia zonas de liquidez e ordens ocultas em milissegundos. A tecnologia dos grandes bancos, agora no seu gráfico.</p>
             
             <div className="max-w-sm mx-auto space-y-4 bg-[#0d1117] p-8 rounded-3xl border border-[#30363d]">
               <div className="flex items-center gap-2 mb-4">
@@ -120,12 +130,26 @@ export default function AnalisePage() {
         {loading && (
           <div className="flex flex-col items-center justify-center py-32 space-y-6">
             <div className="w-16 h-16 border-4 border-[#30363d] border-t-[#0070f3] rounded-full animate-spin"></div>
-            <div className="text-[#0070f3] font-black tracking-widest text-sm animate-pulse uppercase">Analisando Fluxo Institucional...</div>
+            <div className="text-[#0070f3] font-black tracking-widest text-sm animate-pulse uppercase">Conectando ao Terminal...</div>
+          </div>
+        )}
+
+        {/* FALLBACK: BOTÃO FÍSICO CASO O NAVEGADOR BLOQUEIE O REDIRECIONAMENTO */}
+        {linkPagamento && !loading && (
+          <div className="bg-[#161b22] border border-[#00ff7f]/30 rounded-[48px] p-20 text-center space-y-8 shadow-[0_0_50px_rgba(0,255,127,0.05)] relative overflow-hidden animate-in zoom-in duration-500">
+            <h2 className="text-4xl font-black text-white italic">CHECKOUT LIBERADO</h2>
+            <p className="text-[#8b949e] max-w-md mx-auto">O seu link de acesso criptografado foi gerado. Se você não for redirecionado automaticamente, clique no botão abaixo para prosseguir com o pagamento.</p>
+            <a 
+              href={linkPagamento} 
+              className="inline-block w-full max-w-sm bg-[#00ff7f] hover:bg-[#00cc66] text-black font-black py-5 rounded-xl transition-all shadow-[0_10px_20px_rgba(0,255,127,0.2)] uppercase tracking-widest text-sm"
+            >
+              FINALIZAR PAGAMENTO
+            </a>
           </div>
         )}
 
         {/* ÁREA DE UPLOAD */}
-        {acessoLiberado && !imagemFinal && !loading && (
+        {acessoLiberado && !imagemFinal && !loading && !linkPagamento && (
           <div className="bg-[#161b22] border border-[#30363d] border-dashed rounded-[48px] p-24 flex flex-col items-center justify-center relative cursor-pointer group shadow-2xl hover:border-[#0070f3] transition-colors duration-300">
             <input type="file" onChange={handleUpload} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
             <div className="w-20 h-20 bg-[#0d1117] rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
@@ -137,13 +161,11 @@ export default function AnalisePage() {
         )}
 
         {/* DASHBOARD DE RESULTADO PROFISSIONAL */}
-        {imagemFinal && analise && (
+        {imagemFinal && analise && !linkPagamento && (
           <div className="space-y-6 pb-20 animate-in fade-in zoom-in-95 duration-500">
             
             {/* Header do Relatório */}
             <div className="flex flex-col md:flex-row gap-6">
-              
-              {/* Sinal Principal */}
               <div className="bg-[#161b22] border border-[#30363d] p-6 rounded-3xl flex-1 flex items-center justify-between shadow-lg">
                 <div>
                   <p className="text-[10px] text-[#8b949e] uppercase font-black tracking-widest mb-1">Sinal Identificado</p>
@@ -157,7 +179,6 @@ export default function AnalisePage() {
                 </div>
               </div>
 
-              {/* Ativo Info */}
               <div className="bg-[#161b22] border border-[#30363d] p-6 rounded-3xl flex items-center justify-center shadow-lg px-12">
                  <h2 className="text-2xl font-black text-white">{analise.ativo}</h2>
               </div>
@@ -165,16 +186,11 @@ export default function AnalisePage() {
 
             {/* Print Processado & Alvos */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              
-              {/* Imagem (Ocupa 7 colunas) */}
               <div className="lg:col-span-7 relative rounded-3xl overflow-hidden border border-[#30363d] bg-[#161b22] p-2 shadow-xl">
                 <img src={imagemFinal} alt="Análise Gráfica" className="w-full h-auto rounded-[22px] border border-[#30363d]" />
               </div>
 
-              {/* Tabela de Preços e Alvos (Ocupa 5 colunas) */}
               <div className="lg:col-span-5 flex flex-col gap-6">
-                
-                {/* Linha 1: Entrada e Stop */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-[#161b22] border border-[#30363d] p-5 rounded-2xl">
                      <p className="text-[10px] text-[#8b949e] uppercase font-bold tracking-widest mb-2">Entrada Ideal</p>
@@ -186,7 +202,6 @@ export default function AnalisePage() {
                   </div>
                 </div>
 
-                {/* Linha 2: Confluências */}
                 <div className="grid grid-cols-3 gap-4 bg-[#161b22] border border-[#30363d] p-5 rounded-2xl">
                   <div className="text-center border-r border-[#30363d]">
                     <p className="text-[9px] text-[#8b949e] uppercase font-bold mb-1">Confluência</p>
@@ -202,7 +217,6 @@ export default function AnalisePage() {
                   </div>
                 </div>
 
-                {/* Lista de Alvos (Targets) */}
                 <div className="bg-[#161b22] border border-[#30363d] p-6 rounded-2xl flex-1 flex flex-col justify-center">
                   <p className="text-[10px] text-[#8b949e] uppercase font-bold tracking-widest mb-6 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-[#0070f3]"></span> Alvos Institucionais (Take Profit)
@@ -213,7 +227,6 @@ export default function AnalisePage() {
                       <div key={index} className="flex items-center gap-4">
                         <div className="w-12 text-xs font-black text-[#8b949e]">{tp.id}</div>
                         <div className="flex-1 bg-[#0d1117] h-2 rounded-full overflow-hidden relative">
-                           {/* Barra de Progresso simulando probabilidade */}
                            <div 
                              className={`absolute top-0 left-0 h-full rounded-full ${analise.direcao.includes('COMPRA') ? 'bg-gradient-to-r from-[#00ff7f]/40 to-[#00ff7f]' : 'bg-gradient-to-r from-[#ff3333]/40 to-[#ff3333]'}`} 
                              style={{ width: tp.probabilidade }}
@@ -228,7 +241,6 @@ export default function AnalisePage() {
                   </div>
                 </div>
 
-                {/* Níveis de Preço */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-[#161b22] border border-[#00ff7f]/20 p-4 rounded-xl">
                      <p className="text-[9px] text-[#00ff7f] uppercase font-bold tracking-widest mb-1">Suporte Forte</p>
@@ -239,11 +251,9 @@ export default function AnalisePage() {
                      <p className="text-sm font-bold text-white">{analise.resistencias_detectadas[0]}</p>
                   </div>
                 </div>
-
               </div>
             </div>
 
-            {/* Justificativa Lógica SMC */}
             <div className="bg-[#161b22] border border-[#30363d] p-8 rounded-3xl shadow-xl relative overflow-hidden group">
               <div className="absolute left-0 top-0 w-1 h-full bg-[#0070f3]"></div>
               <p className="text-[10px] text-[#0070f3] uppercase font-black tracking-widest mb-4">Laudo Técnico Institucional (SMC)</p>
