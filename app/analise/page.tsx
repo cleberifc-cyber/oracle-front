@@ -6,36 +6,24 @@ export default function AnalisePage() {
   const [imagemFinal, setImagemFinal] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [cupom, setCupom] = useState("");
+  const [emailCompra, setEmailCompra] = useState("");
   const [acessoLiberado, setAcessoLiberado] = useState(false);
   const [linkPagamento, setLinkPagamento] = useState<string | null>(null);
   const [statusAcesso, setStatusAcesso] = useState("aguardando");
+  const [mensagemStatus, setMensagemStatus] = useState("Aguardando liberação.");
+  const [codigoVenda, setCodigoVenda] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const acessoSalvo = sessionStorage.getItem("oracle_acesso_liberado");
+    const codigoSalvo = sessionStorage.getItem("oracle_codigo_venda");
+
     if (acessoSalvo === "true") {
       setAcessoLiberado(true);
       setStatusAcesso("liberado");
-      return;
-    }
-
-    const params = new URLSearchParams(window.location.search);
-
-    const transactionId = params.get("transaction_id");
-    const receiptUrl = params.get("receipt_url");
-    const orderNsu = params.get("order_nsu");
-    const captureMethod = params.get("capture_method");
-    const slug = params.get("slug");
-
-    const pagamentoRetornou =
-      !!transactionId || !!receiptUrl || !!orderNsu || !!captureMethod || !!slug;
-
-    if (pagamentoRetornou) {
-      setAcessoLiberado(true);
-      setStatusAcesso("liberado");
-      sessionStorage.setItem("oracle_acesso_liberado", "true");
-      window.history.replaceState({}, document.title, "/analise");
+      setMensagemStatus("Acesso liberado com sucesso.");
+      if (codigoSalvo) setCodigoVenda(codigoSalvo);
     }
   }, []);
 
@@ -59,12 +47,12 @@ export default function AnalisePage() {
         if (validar.ok && respostaCupom.status === "liberado") {
           setAcessoLiberado(true);
           setStatusAcesso("liberado");
+          setMensagemStatus("Acesso liberado por cupom.");
           sessionStorage.setItem("oracle_acesso_liberado", "true");
           setLoading(false);
           return;
         }
       } catch (err) {
-        // segue para pagamento
       } finally {
         setLoading(false);
       }
@@ -94,6 +82,50 @@ export default function AnalisePage() {
       }
     } catch (err: any) {
       alert("Falha ao conectar com o servidor de pagamento.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const liberarPorEmail = async () => {
+    const email = emailCompra.trim().toLowerCase();
+
+    if (!email) {
+      alert("Digite o mesmo e-mail usado na compra.");
+      return;
+    }
+
+    setLoading(true);
+    setStatusAcesso("verificando");
+    setMensagemStatus("Verificando pagamento aprovado pelo e-mail informado...");
+
+    try {
+      const res = await fetch("https://oracle-analises.onrender.com/verificar-venda-por-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email })
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.aprovada) {
+        setAcessoLiberado(true);
+        setStatusAcesso("liberado");
+        setMensagemStatus("Pagamento confirmado com sucesso.");
+        setCodigoVenda(data.codigo_venda || null);
+        sessionStorage.setItem("oracle_acesso_liberado", "true");
+        if (data.codigo_venda) {
+          sessionStorage.setItem("oracle_codigo_venda", data.codigo_venda);
+        }
+      } else {
+        setStatusAcesso("pendente");
+        setMensagemStatus("Nenhuma venda aprovada encontrada para este e-mail.");
+      }
+    } catch (err) {
+      setStatusAcesso("erro");
+      setMensagemStatus("Erro ao validar a compra pelo e-mail.");
     } finally {
       setLoading(false);
     }
@@ -134,8 +166,13 @@ export default function AnalisePage() {
     setAnalise(null);
     setLinkPagamento(null);
     setCupom("");
+    setEmailCompra("");
     setStatusAcesso("aguardando");
+    setMensagemStatus("Sessão resetada.");
+    setCodigoVenda(null);
+
     sessionStorage.removeItem("oracle_acesso_liberado");
+    sessionStorage.removeItem("oracle_codigo_venda");
 
     if (typeof window !== "undefined") {
       window.history.replaceState({}, document.title, "/analise");
@@ -186,7 +223,38 @@ export default function AnalisePage() {
               >
                 ADQUIRIR ACESSO — R$ 19,90
               </button>
+
+              <div className="pt-4 border-t border-[#30363d] space-y-3">
+                <input
+                  type="email"
+                  placeholder="DIGITE O E-MAIL USADO NA COMPRA"
+                  value={emailCompra}
+                  onChange={(e) => setEmailCompra(e.target.value)}
+                  className="w-full bg-[#161b22] border border-[#30363d] p-4 rounded-xl text-center text-white outline-none focus:border-[#00ff7f] text-sm font-bold"
+                />
+
+                <button
+                  onClick={liberarPorEmail}
+                  className="w-full bg-[#0d1117] hover:bg-[#111827] border border-[#00ff7f]/30 text-[#00ff7f] font-black py-4 rounded-xl transition-all shadow-lg text-sm tracking-widest"
+                >
+                  JÁ PAGUEI / LIBERAR ACESSO
+                </button>
+              </div>
             </div>
+
+            {(statusAcesso === "pendente" || statusAcesso === "erro" || statusAcesso === "verificando") && (
+              <div className="max-w-xl mx-auto mt-6 bg-[#0b1220] border border-[#30363d] rounded-2xl p-4">
+                <p className={`text-sm font-bold ${
+                  statusAcesso === "erro"
+                    ? "text-[red]"
+                    : statusAcesso === "pendente"
+                    ? "text-[#f0b90b]"
+                    : "text-[#0070f3]"
+                }`}>
+                  {mensagemStatus}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -194,8 +262,11 @@ export default function AnalisePage() {
           <div className="flex flex-col items-center justify-center py-32 space-y-6">
             <div className="w-16 h-16 border-4 border-[#30363d] border-t-[#0070f3] rounded-full animate-spin"></div>
             <div className="text-[#0070f3] font-black tracking-widest text-sm animate-pulse uppercase">
-              CONECTANDO AO CHECKOUT...
+              PROCESSANDO...
             </div>
+            <p className="text-[#8b949e] text-sm text-center max-w-md">
+              {mensagemStatus}
+            </p>
           </div>
         )}
 
@@ -224,6 +295,10 @@ export default function AnalisePage() {
                 <h3 className="text-lg font-black text-white uppercase italic">
                   Acesso liberado com sucesso
                 </h3>
+                <p className="text-xs text-[#8b949e] mt-2">{mensagemStatus}</p>
+                {codigoVenda && (
+                  <p className="text-xs text-[#8b949e] mt-1">Código da venda: {codigoVenda}</p>
+                )}
               </div>
 
               <button
