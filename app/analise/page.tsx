@@ -10,24 +10,18 @@ export default function AnalisePage() {
   const [linkPagamento, setLinkPagamento] = useState<string | null>(null);
 
   const processarAcesso = async () => {
-    // 1. Limpa espaços e deixa tudo maiúsculo
     const textoCupom = cupom.trim().toUpperCase();
 
-    // 2. Verifica se é o acesso gratuito
     if (textoCupom === "FREE1") {
       setAcessoLiberado(true);
       return;
     }
 
-    // 3. Se não for FREE1 (mesmo se estiver vazio), vai para o pagamento
     setLoading(true);
     setLinkPagamento(null);
 
     try {
-      // Envia o cupom exatamente como o Python espera, mesmo se for vazio
       const payload = { cupom: cupom.trim() };
-      
-      console.log("Enviando para o motor no Render...", payload);
 
       const res = await fetch("https://oracle-analises.onrender.com/criar-pagamento", {
         method: "POST",
@@ -38,18 +32,14 @@ export default function AnalisePage() {
       });
       
       const data = await res.json();
-      console.log("Resposta do motor:", data);
       
       if (res.ok && data.init_point) {
-        // Sucesso: Ativa o link e tenta redirecionar
         setLinkPagamento(data.init_point);
         window.location.assign(data.init_point);
       } else {
-        // Mostra na tela exatamente qual foi o erro
         alert("Falha na InfinitePay: " + JSON.stringify(data));
       }
     } catch (err: any) {
-      console.error("Erro de rede:", err);
       alert("O servidor está acordando ou a conexão falhou. Aguarde 30 segundos e clique novamente.");
     } finally {
       setLoading(false);
@@ -89,7 +79,6 @@ export default function AnalisePage() {
     <div className="min-h-screen bg-[#0d1117] text-[#e6edf3] font-sans p-6">
       <div className="max-w-6xl mx-auto space-y-10">
         
-        {/* HEADER */}
         <header className="bg-[#161b22] p-6 rounded-3xl border border-[#30363d] flex justify-between items-center shadow-xl">
           <h1 className="text-xl font-black italic text-white uppercase tracking-tighter">Oracle<span className="text-[#0070f3]">.AI</span> Terminal</h1>
           <div className="text-[10px] text-[#8b949e] font-bold uppercase tracking-widest bg-[#0d1117] px-3 py-1 rounded-full border border-[#30363d]">
@@ -97,7 +86,6 @@ export default function AnalisePage() {
           </div>
         </header>
 
-        {/* TELA DE LOGIN / PAGAMENTO */}
         {!acessoLiberado && !imagemFinal && !loading && !linkPagamento && (
           <div className="bg-[#161b22] border border-[#30363d] rounded-[48px] p-20 text-center space-y-8 shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#0070f3] to-transparent"></div>
@@ -106,7 +94,7 @@ export default function AnalisePage() {
             
             <div className="max-w-sm mx-auto space-y-4 bg-[#0d1117] p-8 rounded-3xl border border-[#30363d]">
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-1.5 h-4 bg-[#ff3333]"></div>
+                <div className="w-1.5 h-4 bg-[red]"></div>
                 <span className="text-xs font-black tracking-widest text-white uppercase">Terminal de Acesso</span>
               </div>
               <input 
@@ -118,7 +106,7 @@ export default function AnalisePage() {
               />
               <button 
                 onClick={processarAcesso} 
-                className="w-full bg-[#430606] hover:bg-[#5a0808] border border-[#ff3333]/20 text-white font-black py-4 rounded-xl transition-all shadow-lg text-sm tracking-widest"
+                className="w-full bg-[#430606] hover:bg-[#5a0808] border border-[red]/20 text-white font-black py-4 rounded-xl transition-all shadow-lg text-sm tracking-widest"
               >
                 ADQUIRIR ACESSO — R$ 19,90
               </button>
@@ -126,7 +114,6 @@ export default function AnalisePage() {
           </div>
         )}
 
-        {/* SPINNER DE CARREGAMENTO */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-32 space-y-6">
             <div className="w-16 h-16 border-4 border-[#30363d] border-t-[#0070f3] rounded-full animate-spin"></div>
@@ -134,7 +121,6 @@ export default function AnalisePage() {
           </div>
         )}
 
-        {/* BOTÃO FALLBACK (Caso o navegador trave o redirecionamento) */}
         {linkPagamento && !loading && (
           <div className="bg-[#161b22] border border-[#00ff7f]/30 rounded-[48px] p-20 text-center space-y-8 shadow-[0_0_50px_rgba(0,255,127,0.05)] relative overflow-hidden animate-in zoom-in duration-500">
             <h2 className="text-4xl font-black text-white italic">CHECKOUT LIBERADO</h2>
@@ -148,7 +134,6 @@ export default function AnalisePage() {
           </div>
         )}
 
-        {/* ÁREA DE SCANNER (Ativada com FREE1) */}
         {acessoLiberado && !imagemFinal && !loading && !linkPagamento && (
           <div className="bg-[#161b22] border border-[#30363d] border-dashed rounded-[48px] p-24 flex flex-col items-center justify-center relative cursor-pointer group shadow-2xl hover:border-[#0070f3] transition-colors duration-300">
             <input type="file" onChange={handleUpload} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
@@ -160,13 +145,12 @@ export default function AnalisePage() {
           </div>
         )}
 
-        {/* RESULTADO DA ANÁLISE */}
         {imagemFinal && analise && !linkPagamento && (
           <div className="space-y-6 pb-20 animate-in fade-in zoom-in-95 duration-500">
             <div className="bg-[#161b22] border border-[#30363d] p-6 rounded-3xl flex justify-between items-center shadow-lg">
                <div>
                   <p className="text-[10px] text-[#8b949e] uppercase font-black tracking-widest mb-1">Sinal</p>
-                  <h3 className={`text-3xl font-black italic uppercase ${analise.direcao.includes('COMPRA') ? 'text-[#00ff7f]' : 'text-[#ff3333]'}`}>{analise.direcao}</h3>
+                  <h3 className={`text-3xl font-black italic uppercase ${analise.direcao.includes('COMPRA') ? 'text-[#00ff7f]' : 'text-[red]'}`}>{analise.direcao}</h3>
                </div>
             </div>
             
