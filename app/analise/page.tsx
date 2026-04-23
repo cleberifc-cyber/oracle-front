@@ -19,9 +19,8 @@ export default function AnalisePage() {
     setLinkPagamento(null);
 
     try {
-      // Formatação blindada do payload
+      // Formatação blindada do payload para o motor Python
       const payload = cupom.trim() !== "" ? { cupom: cupom.trim() } : {};
-      console.log("Iniciando transação com o motor Oracle...", payload);
 
       const res = await fetch("https://oracle-analises.onrender.com/criar-pagamento", {
         method: "POST",
@@ -29,24 +28,22 @@ export default function AnalisePage() {
           "Content-Type": "application/json",
           "Accept": "application/json"
         },
-        mode: "cors", // Força a liberação de política de rede
+        mode: "cors",
         body: JSON.stringify(payload)
       });
       
       const data = await res.json();
-      console.log("Resposta do Motor:", data);
       
       if (res.ok && data.init_point) {
-        // Salva o link no estado para ativar a tela de Fallback
+        // Salva o link no estado para ativar a tela de Fallback de segurança
         setLinkPagamento(data.init_point);
-        // Tenta o redirecionamento agressivo
+        // Tenta o redirecionamento imediato
         window.location.assign(data.init_point);
       } else {
         alert("FALHA NA INTEGRAÇÃO: " + (data.detail || "Erro de comunicação com a InfinitePay."));
       }
     } catch (err: any) {
-      console.error("Erro Crítico:", err);
-      alert("O seu navegador bloqueou a requisição ou o servidor está dormindo. Verifique sua conexão.");
+      alert("Falha de rede. O motor no Render pode estar reiniciando, tente novamente em 10 segundos.");
     } finally {
       setLoading(false);
     }
@@ -72,7 +69,7 @@ export default function AnalisePage() {
         setAnalise(data.relatorio_completo);
         setImagemFinal(data.imagem_processada_oracle_sniper);
       } else {
-        alert("Erro no processamento da imagem: " + JSON.stringify(data));
+        alert("Erro no processamento da imagem.");
       }
     } catch (err) {
       alert("Erro ao conectar com o motor de visão computacional.");
@@ -102,7 +99,7 @@ export default function AnalisePage() {
             
             <div className="max-w-sm mx-auto space-y-4 bg-[#0d1117] p-8 rounded-3xl border border-[#30363d]">
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-1.5 h-4 bg-[#ff3333]"></div>
+                <div className="w-1.5 h-4 bg-[red]"></div>
                 <span className="text-xs font-black tracking-widest text-white uppercase">Terminal de Acesso</span>
               </div>
               <input 
@@ -114,7 +111,7 @@ export default function AnalisePage() {
               />
               <button 
                 onClick={processarAcesso} 
-                className="w-full bg-[#430606] hover:bg-[#5a0808] border border-[#ff3333]/20 text-white font-black py-4 rounded-xl transition-all shadow-lg text-sm tracking-widest"
+                className="w-full bg-[#430606] hover:bg-[#5a0808] border border-[red]/20 text-white font-black py-4 rounded-xl transition-all shadow-lg text-sm tracking-widest"
               >
                 ADQUIRIR ACESSO — R$ 19,90
               </button>
@@ -169,13 +166,13 @@ export default function AnalisePage() {
               <div className="bg-[#161b22] border border-[#30363d] p-6 rounded-3xl flex-1 flex items-center justify-between shadow-lg">
                 <div>
                   <p className="text-[10px] text-[#8b949e] uppercase font-black tracking-widest mb-1">Sinal Identificado</p>
-                  <h3 className={`text-3xl font-black italic uppercase ${analise.direcao.includes('COMPRA') ? 'text-[#00ff7f]' : 'text-[#ff3333]'}`}>
+                  <h3 className={`text-3xl font-black italic uppercase ${analise.direcao.includes('COMPRA') ? 'text-[#00ff7f]' : 'text-[red]'}`}>
                     {analise.direcao}
                   </h3>
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] text-[#8b949e] uppercase font-black tracking-widest mb-1">Confiança IA</p>
-                  <p className={`text-2xl font-black ${analise.direcao.includes('COMPRA') ? 'text-[#00ff7f]' : 'text-[#ff3333]'}`}>{analise.confianca_geral}</p>
+                  <p className={`text-2xl font-black ${analise.direcao.includes('COMPRA') ? 'text-[#00ff7f]' : 'text-[red]'}`}>{analise.confianca_geral}</p>
                 </div>
               </div>
 
@@ -197,8 +194,8 @@ export default function AnalisePage() {
                      <p className="text-xl font-black text-white">{analise.entrada}</p>
                   </div>
                   <div className="bg-[#161b22] border border-[#30363d] p-5 rounded-2xl">
-                     <p className="text-[10px] text-[#ff3333] uppercase font-bold tracking-widest mb-2">Stop Loss</p>
-                     <p className="text-xl font-black text-[#ff3333]">{analise.stop_loss}</p>
+                     <p className="text-[10px] text-[red] uppercase font-bold tracking-widest mb-2">Stop Loss</p>
+                     <p className="text-xl font-black text-[red]">{analise.stop_loss}</p>
                   </div>
                 </div>
 
@@ -213,7 +210,7 @@ export default function AnalisePage() {
                   </div>
                   <div className="text-center">
                     <p className="text-[9px] text-[#8b949e] uppercase font-bold mb-1">Técnico</p>
-                    <p className={`text-sm font-black uppercase ${analise.direcao.includes('COMPRA') ? 'text-[#00ff7f]' : 'text-[#ff3333]'}`}>{analise.analise_tecnica}</p>
+                    <p className={`text-sm font-black uppercase ${analise.direcao.includes('COMPRA') ? 'text-[#00ff7f]' : 'text-[red]'}`}>{analise.analise_tecnica}</p>
                   </div>
                 </div>
 
@@ -228,7 +225,7 @@ export default function AnalisePage() {
                         <div className="w-12 text-xs font-black text-[#8b949e]">{tp.id}</div>
                         <div className="flex-1 bg-[#0d1117] h-2 rounded-full overflow-hidden relative">
                            <div 
-                             className={`absolute top-0 left-0 h-full rounded-full ${analise.direcao.includes('COMPRA') ? 'bg-gradient-to-r from-[#00ff7f]/40 to-[#00ff7f]' : 'bg-gradient-to-r from-[#ff3333]/40 to-[#ff3333]'}`} 
+                             className={`absolute top-0 left-0 h-full rounded-full ${analise.direcao.includes('COMPRA') ? 'bg-gradient-to-r from-[#00ff7f]/40 to-[#00ff7f]' : 'bg-gradient-to-r from-[red]/40 to-[red]'}`} 
                              style={{ width: tp.probabilidade }}
                            ></div>
                         </div>
@@ -246,8 +243,8 @@ export default function AnalisePage() {
                      <p className="text-[9px] text-[#00ff7f] uppercase font-bold tracking-widest mb-1">Suporte Forte</p>
                      <p className="text-sm font-bold text-white">{analise.suporte_principal}</p>
                   </div>
-                  <div className="bg-[#161b22] border border-[#ff3333]/20 p-4 rounded-xl">
-                     <p className="text-[9px] text-[#ff3333] uppercase font-bold tracking-widest mb-1">Resistência</p>
+                  <div className="bg-[#161b22] border border-[red]/20 p-4 rounded-xl">
+                     <p className="text-[9px] text-[red] uppercase font-bold tracking-widest mb-1">Resistência</p>
                      <p className="text-sm font-bold text-white">{analise.resistencias_detectadas[0]}</p>
                   </div>
                 </div>
