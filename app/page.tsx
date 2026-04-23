@@ -1,174 +1,358 @@
 "use client";
+import { useEffect, useState } from "react";
 
-import { useState, useEffect } from "react";
-
-export default function OracleAIPage() {
-  const [cupom, setCupom] = useState("");
+export default function AnalisePage() {
+  const [analise, setAnalise] = useState<any>(null);
+  const [imagemFinal, setImagemFinal] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [mensagem, setMensagem] = useState("");
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [cupom, setCupom] = useState("");
+  const [acessoLiberado, setAcessoLiberado] = useState(false);
+  const [linkPagamento, setLinkPagamento] = useState<string | null>(null);
+  const [statusAcesso, setStatusAcesso] = useState("aguardando");
+  const [mensagemStatus, setMensagemStatus] = useState("Aguardando liberação.");
+  const [codigoVenda, setCodigoVenda] = useState<string | null>(null);
 
-  // Efeito visual de rastro de luz seguindo o mouse
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
+    if (typeof window === "undefined") return;
 
-  const handlePagamento = async () => {
-    setLoading(true);
-    setMensagem("");
-    try {
-      const response = await fetch("https://oracle-analises.onrender.com/criar-pagamento", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cupom: cupom }),
-      });
-      const data = await response.json();
+    const iniciarValidacao = async () => {
+      const acessoSalvo = sessionStorage.getItem("oracle_acesso_liberado");
+      const codigoSalvo = sessionStorage.getItem("oracle_codigo_venda");
 
-      if (data.init_point === "FREE_ACCESS") {
-        setMensagem("⚡ ACESSO BIOMÉTRICO VALIDADO. REDIRECIONANDO...");
-        // Simulação de redirecionamento para a página de análise
-        setTimeout(() => { 
-          alert("Acesso Liberado! Aqui o sistema abriria a análise institucional.");
-        }, 1500);
+      if (acessoSalvo === "true") {
+        setAcessoLiberado(true);
+        setStatusAcesso("liberado");
+        setMensagemStatus("Acesso liberado com sucesso.");
+        if (codigoSalvo) setCodigoVenda(codigoSalvo);
         return;
       }
 
-      if (data.init_point) {
-        window.location.href = data.init_point;
-      } else {
-        setMensagem("❌ CUPOM EXPIRADO OU INVÁLIDO.");
+      const params = new URLSearchParams(window.location.search);
+
+      // Tentativa ampla para capturar possíveis nomes de parâmetro
+      const codigoDetectado =
+        params.get("code") ||
+        params.get("codigo") ||
+        params.get("sale_code") ||
+        params.get("transaction_id") ||
+        params.get("order_nsu") ||
+        params.get("token") ||
+        "";
+
+      if (!codigoDetectado) {
+        return;
       }
-    } catch (error) {
-      setMensagem("❌ FALHA NA CONEXÃO COM O NÚCLEO IA.");
+
+      setLoading(true);
+      setStatusAcesso("verificando");
+      setMensagemStatus("Pagamento identificado. Validando aprovação no servidor...");
+      setCodigoVenda(codigoDetectado);
+
+      try {
+        const res = await fetch(`https://oracle-analises.onrender.com/verificar-venda/${encodeURIComponent(codigoDetectado)}`);
+        const data = await res.json();
+
+        if (res.ok && data.aprovada) {
+          setAcessoLiberado(true);
+          setStatusAcesso("liberado");
+          setMensagemStatus("Pagamento confirmado no servidor. Acesso liberado.");
+          sessionStorage.setItem("oracle_acesso_liberado", "true");
+          sessionStorage.setItem("oracle_codigo_venda", codigoDetectado);
+          window.history.replaceState({}, document.title, "/analise");
+        } else {
+          setStatusAcesso("pendente");
+          setMensagemStatus("Pagamento ainda não confirmado pelo servidor. Aguarde alguns segundos e atualize a página.");
+        }
+      } catch (err) {
+        setStatusAcesso("erro");
+        setMensagemStatus("Falha ao validar o pagamento com o servidor.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    iniciarValidacao();
+  }, []);
+
+  const processarAcesso = async () => {
+    const textoCupom = cupom.trim().toUpperCase();
+
+    if (textoCupom) {
+      setLoading(true);
+
+      try {
+        const validar = await fetch("https://oracle-analises.onrender.com/validar-cupom", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ cupom: textoCupom })
+        });
+
+        const respostaCupom = await validar.json();
+
+        if (validar.ok && respostaCupom.status === "liberado") {
+          setAcessoLiberado(true);
+          setStatusAcesso("liberado");
+          setMensagemStatus("Acesso liberado por cupom.");
+          sessionStorage.setItem("oracle_acesso_liberado", "true");
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        // segue para pagamento
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    setLoading(true);
+    setLinkPagamento(null);
+
+    try {
+      const payload = { cupom: cupom.trim() };
+
+      const res = await fetch("https://oracle-analises.onrender.com/criar-pagamento", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.init_point) {
+        setLinkPagamento(data.init_point);
+        window.location.assign(data.init_point);
+      } else {
+        alert("Falha ao gerar checkout PerfectPay: " + JSON.stringify(data));
+      }
+    } catch (err: any) {
+      alert("Falha ao conectar com o servidor de pagamento.");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleUpload = async (e: any) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setLoading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("https://oracle-analises.onrender.com/analisar-print-com-desenho", {
+        method: "POST",
+        body: formData
+      });
+
+      const data = await res.json();
+
+      if (data.status === "sucesso") {
+        setAnalise(data.relatorio_completo);
+        setImagemFinal(data.imagem_processada_oracle_sniper);
+      } else {
+        alert("Erro no processamento da imagem.");
+      }
+    } catch (err) {
+      alert("Erro ao conectar com o motor visual.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetarSessao = () => {
+    setAcessoLiberado(false);
+    setImagemFinal(null);
+    setAnalise(null);
+    setLinkPagamento(null);
+    setCupom("");
+    setStatusAcesso("aguardando");
+    setMensagemStatus("Sessão resetada.");
+    setCodigoVenda(null);
+
+    sessionStorage.removeItem("oracle_acesso_liberado");
+    sessionStorage.removeItem("oracle_codigo_venda");
+
+    if (typeof window !== "undefined") {
+      window.history.replaceState({}, document.title, "/analise");
+    }
+  };
+
   return (
-    <div className="relative min-h-screen bg-[#050505] text-white overflow-hidden font-sans selection:bg-[#4a0404]">
-      
-      {/* BACKGROUND COM GRID E GRÁFICOS - CORRIGIDO PARA VERCEL */}
-      <div 
-        className="absolute inset-0 z-0 opacity-20" 
-        style={{ 
-          backgroundImage: `linear-gradient(#111 1px, transparent 1px), linear-gradient(90deg, #111 1px, transparent 1px)`, 
-          backgroundSize: '40px 40px' 
-        }} 
-      />
-      
-      {/* EFEITO DE LUZ RADIAL (SEGUE O MOUSE) */}
-      <div className="pointer-events-none absolute inset-0 z-10 opacity-30 transition-opacity duration-300"
-           style={{ background: `radial-gradient(600px at ${mousePos.x}px ${mousePos.y}px, rgba(74, 4, 4, 0.4), transparent 80%)` }} />
+    <div className="min-h-screen bg-[#0d1117] text-[#e6edf3] font-sans p-6">
+      <div className="max-w-6xl mx-auto space-y-10">
 
-      {/* HEADER NAVBAR */}
-      <nav className="relative z-20 flex justify-between items-center p-6 max-w-7xl mx-auto border-b border-white/5 bg-black/50 backdrop-blur-md">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[#4a0404] rounded-full animate-pulse shadow-[0_0_15px_#4a0404]" />
-          <span className="font-bold text-xl tracking-tighter italic">ORACLE<span className="text-[#4a0404]">.AI</span></span>
-        </div>
-        <div className="hidden md:flex gap-8 text-[10px] font-bold tracking-[0.3em] text-gray-500 uppercase">
-          <span>Institutional Engine V2.0</span>
-          <span className="text-[#4a0404] animate-pulse">● Live Market Data</span>
-        </div>
-      </nav>
+        <header className="bg-[#161b22] p-6 rounded-3xl border border-[#30363d] flex justify-between items-center shadow-xl">
+          <h1 className="text-xl font-black italic text-white uppercase tracking-tighter">
+            Oracle<span className="text-[#0070f3]">.AI</span> Terminal
+          </h1>
+          <div className="text-[10px] text-[#8b949e] font-bold uppercase tracking-widest bg-[#0d1117] px-3 py-1 rounded-full border border-[#30363d]">
+            Gemini 3 Ultra Pro
+          </div>
+        </header>
 
-      <main className="relative z-20 flex flex-col items-center justify-center pt-20 px-6">
-        
-        {/* BADGE IA */}
-        <div className="mb-6 px-4 py-1 border border-[#4a0404]/50 rounded-full bg-[#4a0404]/10 text-[#ff4d4d] text-[10px] font-bold tracking-[0.3em] uppercase animate-bounce">
-          Neural Network Analysis Active
-        </div>
+        {!acessoLiberado && !imagemFinal && !loading && !linkPagamento && (
+          <div className="bg-[#161b22] border border-[#30363d] rounded-[48px] p-20 text-center space-y-8 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#0070f3] to-transparent"></div>
+            <h2 className="text-4xl font-black text-white italic">DECIFRE O FLUXO INSTITUCIONAL</h2>
+            <p className="text-[#8b949e] max-w-lg mx-auto">
+              Nossa inteligência artificial mapeia zonas de liquidez e ordens ocultas em milissegundos.
+              A tecnologia dos grandes bancos, agora no seu gráfico.
+            </p>
 
-        {/* TEXTO PRINCIPAL */}
-        <h1 className="text-5xl md:text-7xl font-black text-center mb-6 leading-tight tracking-tighter">
-          DECIFRE O FLUXO <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-600">
-            INSTITUCIONAL.
-          </span>
-        </h1>
-        
-        <p className="max-w-2xl text-center text-gray-400 text-lg mb-12 leading-relaxed">
-          Nossa inteligência artificial mapeia zonas de liquidez e ordens ocultas em milissegundos. 
-          A tecnologia dos grandes bancos, agora no seu gráfico.
-        </p>
+            <div className="max-w-sm mx-auto space-y-4 bg-[#0d1117] p-8 rounded-3xl border border-[#30363d]">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1.5 h-4 bg-[red]"></div>
+                <span className="text-xs font-black tracking-widest text-white uppercase">
+                  Terminal de Acesso
+                </span>
+              </div>
 
-        {/* CARD DE ACESSO (GLASSMORPHISM) */}
-        <div className="w-full max-w-md bg-white/[0.03] border border-white/10 backdrop-blur-xl p-8 rounded-3xl shadow-2xl relative overflow-hidden group">
-          <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#4a0404] to-transparent opacity-50" />
-          
-          <div className="relative z-10">
-            <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-gray-200">
-              <span className="w-2 h-4 bg-[#4a0404] block" />
-              TERMINAL DE ACESSO
-            </h2>
-
-            <div className="space-y-4">
               <input
                 type="text"
-                placeholder="INSIRA SEU CUPOM"
+                placeholder="INSIRA SEU CUPOM (OPCIONAL)"
                 value={cupom}
                 onChange={(e) => setCupom(e.target.value)}
-                className="w-full bg-black/50 border border-white/10 p-4 rounded-xl text-white focus:border-[#4a0404] outline-none transition-all placeholder:text-gray-700 font-mono text-sm tracking-widest uppercase"
+                className="w-full bg-[#161b22] border border-[#30363d] p-4 rounded-xl text-center text-white outline-none focus:border-[#0070f3] text-sm font-bold uppercase"
               />
 
               <button
-                onClick={handlePagamento}
-                disabled={loading}
-                className={`w-full py-5 rounded-xl font-black text-xs tracking-[0.2em] uppercase transition-all flex items-center justify-center gap-3 ${
-                  cupom.toUpperCase() === "FREE1"
-                    ? "bg-white text-black hover:bg-gray-200"
-                    : "bg-[#4a0404] text-white hover:bg-[#630606] shadow-[0_10px_30px_rgba(74,4,4,0.3)]"
-                }`}
+                onClick={processarAcesso}
+                className="w-full bg-[#430606] hover:bg-[#5a0808] border border-[red]/20 text-white font-black py-4 rounded-xl transition-all shadow-lg text-sm tracking-widest"
               >
-                {loading ? (
-                  <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  cupom.toUpperCase() === "FREE1" ? "INICIAR SESSÃO GRATUITA" : "ADQUIRIR ACESSO — R$ 19,90"
-                )}
+                ADQUIRIR ACESSO — R$ 19,90
               </button>
             </div>
 
-            {mensagem && (
-              <p className="mt-4 text-center text-[10px] font-bold tracking-widest text-[#ff4d4d] animate-pulse uppercase">
-                {mensagem}
-              </p>
+            {(statusAcesso === "pendente" || statusAcesso === "erro") && (
+              <div className="max-w-xl mx-auto mt-6 bg-[#0b1220] border border-[#30363d] rounded-2xl p-4">
+                <p className={`text-sm font-bold ${statusAcesso === "erro" ? "text-[red]" : "text-[#f0b90b]"}`}>
+                  {mensagemStatus}
+                </p>
+                {codigoVenda && (
+                  <p className="text-xs text-[#8b949e] mt-2">
+                    Código detectado: {codigoVenda}
+                  </p>
+                )}
+              </div>
             )}
+          </div>
+        )}
 
-            <div className="mt-8 flex justify-between items-center grayscale opacity-30 group-hover:opacity-100 transition-opacity">
-               <span className="text-[10px] font-bold tracking-widest uppercase">Pix Active</span>
-               <div className="h-4 w-[1px] bg-white/10" />
-               <span className="text-[10px] font-bold tracking-widest uppercase">Secure SSL</span>
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-32 space-y-6">
+            <div className="w-16 h-16 border-4 border-[#30363d] border-t-[#0070f3] rounded-full animate-spin"></div>
+            <div className="text-[#0070f3] font-black tracking-widest text-sm animate-pulse uppercase">
+              VALIDANDO ACESSO NO SERVIDOR...
+            </div>
+            <p className="text-[#8b949e] text-sm text-center max-w-md">
+              {mensagemStatus}
+            </p>
+          </div>
+        )}
+
+        {linkPagamento && !loading && (
+          <div className="bg-[#161b22] border border-[#00ff7f]/30 rounded-[48px] p-20 text-center space-y-8 shadow-[0_0_50px_rgba(0,255,127,0.05)] relative overflow-hidden animate-in zoom-in duration-500">
+            <h2 className="text-4xl font-black text-white italic">CHECKOUT LIBERADO</h2>
+            <p className="text-[#8b949e] max-w-md mx-auto">
+              Seu acesso foi preparado. Clique no botão abaixo para prosseguir com o pagamento seguro.
+            </p>
+            <a
+              href={linkPagamento}
+              className="inline-block w-full max-w-sm bg-[#00ff7f] hover:bg-[#00cc66] text-black font-black py-5 rounded-xl transition-all shadow-lg uppercase tracking-widest text-sm"
+            >
+              FINALIZAR PAGAMENTO
+            </a>
+          </div>
+        )}
+
+        {acessoLiberado && !imagemFinal && !loading && !linkPagamento && (
+          <div className="space-y-6">
+            <div className="bg-[#161b22] border border-[#00ff7f]/20 rounded-3xl px-6 py-4 flex items-center justify-between shadow-xl">
+              <div>
+                <p className="text-[10px] text-[#00ff7f] uppercase font-black tracking-widest mb-1">
+                  Status do Terminal
+                </p>
+                <h3 className="text-lg font-black text-white uppercase italic">
+                  Acesso liberado com sucesso
+                </h3>
+                <p className="text-xs text-[#8b949e] mt-2">{mensagemStatus}</p>
+                {codigoVenda && (
+                  <p className="text-xs text-[#8b949e] mt-1">Código da venda: {codigoVenda}</p>
+                )}
+              </div>
+
+              <button
+                onClick={resetarSessao}
+                className="bg-[#0d1117] border border-[#30363d] text-white px-4 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase"
+              >
+                Resetar Sessão
+              </button>
+            </div>
+
+            <div className="bg-[#161b22] border border-[#30363d] border-dashed rounded-[48px] p-24 flex flex-col items-center justify-center relative cursor-pointer group shadow-2xl hover:border-[#0070f3] transition-colors duration-300">
+              <input
+                type="file"
+                onChange={handleUpload}
+                className="absolute inset-0 opacity-0 cursor-pointer z-10"
+              />
+              <div className="w-20 h-20 bg-[#0d1117] rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <span className="text-3xl">🔭</span>
+              </div>
+              <h2 className="text-2xl font-black text-white uppercase italic">Scanner Ativo</h2>
+              <p className="text-[#8b949e] text-sm mt-3 text-center max-w-sm">
+                Arraste seu gráfico para análise.
+              </p>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* FOOTER STATS */}
-        <div className="mt-16 grid grid-cols-2 md:grid-cols-3 gap-12 text-center opacity-40">
-            <div>
-                <p className="text-2xl font-bold">98.4%</p>
-                <p className="text-[10px] uppercase tracking-widest">Precisão IA</p>
+        {imagemFinal && analise && !linkPagamento && (
+          <div className="space-y-6 pb-20 animate-in fade-in zoom-in-95 duration-500">
+            <div className="bg-[#161b22] border border-[#30363d] p-6 rounded-3xl flex justify-between items-center shadow-lg">
+              <div>
+                <p className="text-[10px] text-[#8b949e] uppercase font-black tracking-widest mb-1">
+                  Sinal
+                </p>
+                <h3
+                  className={`text-3xl font-black italic uppercase ${
+                    analise.direcao.includes("COMPRA") ? "text-[#00ff7f]" : "text-[red]"
+                  }`}
+                >
+                  {analise.direcao}
+                </h3>
+              </div>
             </div>
-            <div>
-                <p className="text-2xl font-bold">~12ms</p>
-                <p className="text-[10px] uppercase tracking-widest">Latência</p>
-            </div>
-            <div className="hidden md:block">
-                <p className="text-2xl font-bold">+5000</p>
-                <p className="text-[10px] uppercase tracking-widest">Análises/Dia</p>
-            </div>
-        </div>
-      </main>
 
-      <footer className="relative z-20 py-20 text-center">
-         <p className="text-[9px] text-gray-700 tracking-[0.5em] uppercase">
-           Oracle Senna Intelligence © 2026 • Institutional Trading Technology
-         </p>
-      </footer>
+            <div className="relative rounded-3xl overflow-hidden border border-[#30363d] bg-[#161b22] p-2 shadow-xl max-w-4xl mx-auto">
+              <img src={imagemFinal} className="w-full h-auto rounded-[22px]" alt="Análise" />
+            </div>
+
+            <div className="bg-[#161b22] border border-[#30363d] p-8 rounded-3xl max-w-4xl mx-auto text-center">
+              <p className="text-[10px] text-[#0070f3] uppercase font-black tracking-widest mb-4">
+                Laudo Técnico Institucional (SMC)
+              </p>
+              <p className="text-[#e6edf3] text-sm leading-relaxed">
+                {analise.justificativa_completa_institucional}
+              </p>
+              <button
+                onClick={() => {
+                  setImagemFinal(null);
+                  setAnalise(null);
+                }}
+                className="mt-8 bg-[#0d1117] border border-[#30363d] text-white px-6 py-3 rounded-xl text-xs font-black tracking-widest uppercase"
+              >
+                Nova Análise
+              </button>
+            </div>
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }
