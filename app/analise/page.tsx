@@ -8,6 +8,7 @@ export default function AnalisePage() {
   const [cupom, setCupom] = useState("");
   const [acessoLiberado, setAcessoLiberado] = useState(false);
   const [linkPagamento, setLinkPagamento] = useState<string | null>(null);
+  const [statusAcesso, setStatusAcesso] = useState("aguardando");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -15,6 +16,7 @@ export default function AnalisePage() {
     const acessoSalvo = sessionStorage.getItem("oracle_acesso_liberado");
     if (acessoSalvo === "true") {
       setAcessoLiberado(true);
+      setStatusAcesso("liberado");
       return;
     }
 
@@ -26,14 +28,13 @@ export default function AnalisePage() {
     const captureMethod = params.get("capture_method");
     const slug = params.get("slug");
 
-    const pagamentoRetornouComSucesso =
+    const pagamentoRetornou =
       !!transactionId || !!receiptUrl || !!orderNsu || !!captureMethod || !!slug;
 
-    if (pagamentoRetornouComSucesso) {
+    if (pagamentoRetornou) {
       setAcessoLiberado(true);
-      setLinkPagamento(null);
+      setStatusAcesso("liberado");
       sessionStorage.setItem("oracle_acesso_liberado", "true");
-
       window.history.replaceState({}, document.title, "/analise");
     }
   }, []);
@@ -41,10 +42,32 @@ export default function AnalisePage() {
   const processarAcesso = async () => {
     const textoCupom = cupom.trim().toUpperCase();
 
-    if (textoCupom === "FREE1") {
-      setAcessoLiberado(true);
-      sessionStorage.setItem("oracle_acesso_liberado", "true");
-      return;
+    if (textoCupom) {
+      setLoading(true);
+
+      try {
+        const validar = await fetch("https://oracle-analises.onrender.com/validar-cupom", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ cupom: textoCupom })
+        });
+
+        const respostaCupom = await validar.json();
+
+        if (validar.ok && respostaCupom.status === "liberado") {
+          setAcessoLiberado(true);
+          setStatusAcesso("liberado");
+          sessionStorage.setItem("oracle_acesso_liberado", "true");
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        // segue para pagamento
+      } finally {
+        setLoading(false);
+      }
     }
 
     setLoading(true);
@@ -67,10 +90,10 @@ export default function AnalisePage() {
         setLinkPagamento(data.init_point);
         window.location.assign(data.init_point);
       } else {
-        alert("Falha na InfinitePay: " + JSON.stringify(data));
+        alert("Falha ao gerar checkout PerfectPay: " + JSON.stringify(data));
       }
     } catch (err: any) {
-      alert("O servidor está acordando ou a conexão falhou. Aguarde 30 segundos e clique novamente.");
+      alert("Falha ao conectar com o servidor de pagamento.");
     } finally {
       setLoading(false);
     }
@@ -111,7 +134,9 @@ export default function AnalisePage() {
     setAnalise(null);
     setLinkPagamento(null);
     setCupom("");
+    setStatusAcesso("aguardando");
     sessionStorage.removeItem("oracle_acesso_liberado");
+
     if (typeof window !== "undefined") {
       window.history.replaceState({}, document.title, "/analise");
     }
@@ -169,7 +194,7 @@ export default function AnalisePage() {
           <div className="flex flex-col items-center justify-center py-32 space-y-6">
             <div className="w-16 h-16 border-4 border-[#30363d] border-t-[#0070f3] rounded-full animate-spin"></div>
             <div className="text-[#0070f3] font-black tracking-widest text-sm animate-pulse uppercase">
-              GERANDO LINK SEGURO...
+              CONECTANDO AO CHECKOUT...
             </div>
           </div>
         )}
