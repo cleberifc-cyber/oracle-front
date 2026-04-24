@@ -13,6 +13,8 @@ export default function AnalisePage() {
   const [mensagemStatus, setMensagemStatus] = useState("Aguardando liberação.");
   const [codigoVenda, setCodigoVenda] = useState<string | null>(null);
 
+  const URL_BACKEND = "https://oracle-analises-docker.onrender.com";
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -34,7 +36,7 @@ export default function AnalisePage() {
       setLoading(true);
 
       try {
-        const validar = await fetch("https://oracle-analises.onrender.com/validar-cupom", {
+        const validar = await fetch(`${URL_BACKEND}/validar-cupom`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -64,7 +66,7 @@ export default function AnalisePage() {
     try {
       const payload = { cupom: cupom.trim() };
 
-      const res = await fetch("https://oracle-analises.onrender.com/criar-pagamento", {
+      const res = await fetch(`${URL_BACKEND}/criar-pagamento`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -100,7 +102,7 @@ export default function AnalisePage() {
     setMensagemStatus("Verificando pagamento aprovado pelo e-mail informado...");
 
     try {
-      const res = await fetch("https://oracle-analises.onrender.com/verificar-venda-por-email", {
+      const res = await fetch(`${URL_BACKEND}/verificar-venda-por-email`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -136,18 +138,20 @@ export default function AnalisePage() {
     if (!file) return;
 
     setLoading(true);
+    setMensagemStatus("Processando imagem no motor Oracle...");
+
     const formData = new FormData();
     formData.append("file", file);
 
     try {
-      const res = await fetch("https://oracle-analises.onrender.com/analisar-print-com-desenho", {
+      const res = await fetch(`${URL_BACKEND}/analisar-print-com-desenho`, {
         method: "POST",
         body: formData,
       });
 
       const data = await res.json();
 
-      if (data.status === "sucesso") {
+      if (res.ok && data.status === "sucesso") {
         setAnalise(data.relatorio_completo);
         setImagemFinal(data.imagem_processada_oracle_sniper);
       } else {
@@ -187,7 +191,7 @@ export default function AnalisePage() {
             Oracle<span className="text-[#0070f3]">.AI</span> Terminal
           </h1>
           <div className="text-[10px] text-[#8b949e] font-bold uppercase tracking-widest bg-[#0d1117] px-3 py-1 rounded-full border border-[#30363d]">
-            Gemini 3 Ultra Pro
+            GEMINI 3 ULTRA PRO
           </div>
         </header>
 
@@ -334,7 +338,11 @@ export default function AnalisePage() {
                 </p>
                 <h3
                   className={`text-3xl font-black italic uppercase ${
-                    analise.direcao.includes("COMPRA") ? "text-[#00ff7f]" : "text-[red]"
+                    analise.direcao?.includes("COMPRA")
+                      ? "text-[#00ff7f]"
+                      : analise.direcao?.includes("VENDA")
+                      ? "text-[red]"
+                      : "text-[#f0b90b]"
                   }`}
                 >
                   {analise.direcao}
@@ -346,13 +354,40 @@ export default function AnalisePage() {
               <img src={imagemFinal} className="w-full h-auto rounded-[22px]" alt="Análise" />
             </div>
 
-            <div className="bg-[#161b22] border border-[#30363d] p-8 rounded-3xl max-w-4xl mx-auto text-center">
+            <div className="bg-[#161b22] border border-[#30363d] p-8 rounded-3xl max-w-4xl mx-auto text-center space-y-3">
               <p className="text-[10px] text-[#0070f3] uppercase font-black tracking-widest mb-4">
                 Laudo Técnico Institucional (SMC)
               </p>
+
+              {analise.ativo && (
+                <p className="text-[#8b949e] text-sm">
+                  <strong>Ativo:</strong> {analise.ativo}
+                  {analise.timeframe ? ` | ${analise.timeframe}` : ""}
+                </p>
+              )}
+
+              {analise.preco_atual_detectado && (
+                <p className="text-[#8b949e] text-sm">
+                  <strong>Preço atual detectado:</strong> {analise.preco_atual_detectado}
+                </p>
+              )}
+
+              {analise.tipo_cenario && (
+                <p className="text-[#8b949e] text-sm">
+                  <strong>Cenário:</strong> {analise.tipo_cenario}
+                </p>
+              )}
+
+              {analise.qualidade_leitura && (
+                <p className="text-[#8b949e] text-sm">
+                  <strong>Qualidade da leitura:</strong> {analise.qualidade_leitura}
+                </p>
+              )}
+
               <p className="text-[#e6edf3] text-sm leading-relaxed">
                 {analise.justificativa_completa_institucional}
               </p>
+
               <button
                 onClick={() => {
                   setImagemFinal(null);
